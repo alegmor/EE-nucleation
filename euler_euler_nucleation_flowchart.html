@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Euler-Euler Nucleation Flow — OpenFOAM RPI Model</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+  onload="renderMathInElement(document.body, {
+    delimiters: [
+      {left: '$$', right: '$$', display: true},
+      {left: '$', right: '$', display: false}
+    ]
+  });"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap');
+
+  :root {
+    --bg: #ffffff;
+    --surface: #f7f8fa;
+    --surface-alt: #f0f2f5;
+    --border: #d0d5e0;
+    --accent: #2a6dd9;
+    --accent-glow: rgba(42, 109, 217, 0.08);
+    --hot: #c93d34;
+    --hot-glow: rgba(201, 61, 52, 0.07);
+    --teal: #1a9e8f;
+    --teal-glow: rgba(26, 158, 143, 0.07);
+    --gold: #c48a1a;
+    --gold-glow: rgba(196, 138, 26, 0.07);
+    --text: #3a3f4d;
+    --text-dim: #6b7280;
+    --text-bright: #1a1e2b;
+    --mono: 'JetBrains Mono', monospace;
+    --serif: 'Source Serif 4', Georgia, serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.55;
+    min-height: 100vh;
+    padding: 40px 20px;
+  }
+
+  .container { max-width: 1100px; margin: 0 auto; }
+
+  h1 {
+    font-family: var(--serif);
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--text-bright);
+    text-align: center;
+    margin-bottom: 6px;
+    letter-spacing: -0.5px;
+  }
+
+  .subtitle {
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 12px;
+    margin-bottom: 48px;
+    letter-spacing: 0.5px;
+  }
+
+  .subtitle code {
+    color: var(--accent);
+    background: var(--accent-glow);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+  }
+
+  .flow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+
+  .connector {
+    width: 2px;
+    height: 32px;
+    background: linear-gradient(to bottom, var(--border), var(--accent));
+    position: relative;
+  }
+  .connector::after {
+    content: '';
+    position: absolute;
+    bottom: -5px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 6px solid var(--accent);
+  }
+  .connector.hot { background: linear-gradient(to bottom, var(--border), var(--hot)); }
+  .connector.hot::after { border-top-color: var(--hot); }
+  .connector.teal { background: linear-gradient(to bottom, var(--border), var(--teal)); }
+  .connector.teal::after { border-top-color: var(--teal); }
+  .connector.gold { background: linear-gradient(to bottom, var(--border), var(--gold)); }
+  .connector.gold::after { border-top-color: var(--gold); }
+
+  .node {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 28px;
+    max-width: 720px;
+    width: 100%;
+    position: relative;
+    transition: border-color 0.3s;
+  }
+  .node:hover { border-color: var(--accent); }
+
+  .node.start {
+    background: linear-gradient(135deg, #e8edf6, #dfe4f0);
+    border-color: var(--accent);
+    box-shadow: 0 0 30px var(--accent-glow);
+    text-align: center;
+  }
+
+  .node.hot-border { border-color: var(--hot); box-shadow: 0 0 20px var(--hot-glow); }
+  .node.hot-border:hover { border-color: var(--hot); }
+  .node.teal-border { border-color: var(--teal); box-shadow: 0 0 20px var(--teal-glow); }
+  .node.teal-border:hover { border-color: var(--teal); }
+  .node.gold-border { border-color: var(--gold); box-shadow: 0 0 20px var(--gold-glow); }
+  .node.gold-border:hover { border-color: var(--gold); }
+
+  .node-label {
+    position: absolute;
+    top: -10px;
+    left: 20px;
+    background: var(--bg);
+    padding: 0 8px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-dim);
+  }
+  .node-label.accent { color: var(--accent); }
+  .node-label.hot { color: var(--hot); }
+  .node-label.teal { color: var(--teal); }
+  .node-label.gold { color: var(--gold); }
+
+  .node-title {
+    font-family: var(--serif);
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--text-bright);
+    margin-bottom: 10px;
+  }
+
+  .eq {
+    background: #eef0f4;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 18px;
+    margin: 10px 0;
+    font-size: 14px;
+    color: var(--text);
+    overflow-x: auto;
+  }
+  .eq .katex { font-size: 1.1em; }
+  .eq .dim { color: var(--text-dim); font-family: var(--mono); font-size: 11px; }
+  .eq .eq-label {
+    color: var(--text-bright);
+    font-weight: 600;
+    font-family: var(--mono);
+    font-size: 12px;
+    display: block;
+    margin-bottom: 6px;
+  }
+
+  .detail {
+    color: var(--text-dim);
+    font-size: 11.5px;
+    margin-top: 8px;
+    line-height: 1.6;
+  }
+  .detail strong { color: var(--text); font-weight: 600; }
+
+  .triple-row { display: flex; gap: 16px; width: 100%; max-width: 720px; }
+  .triple-row .node { flex: 1; padding: 16px 18px; }
+
+  .connector-split-3 {
+    display: flex;
+    width: 100%;
+    max-width: 720px;
+    position: relative;
+    height: 36px;
+  }
+  .connector-split-3 .branch-line {
+    position: absolute;
+    top: 0;
+    width: 2px;
+    height: 100%;
+    background: var(--accent);
+  }
+  .connector-split-3 .branch-line::after {
+    content: '';
+    position: absolute;
+    bottom: -5px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 6px solid var(--accent);
+  }
+  .connector-split-3 .branch-line:nth-child(1) { left: calc(16.66%); }
+  .connector-split-3 .branch-line:nth-child(1).hot { background: var(--hot); }
+  .connector-split-3 .branch-line:nth-child(1).hot::after { border-top-color: var(--hot); }
+  .connector-split-3 .branch-line:nth-child(2) { left: 50%; transform: translateX(-50%); }
+  .connector-split-3 .branch-line:nth-child(2).teal { background: var(--teal); }
+  .connector-split-3 .branch-line:nth-child(2).teal::after { border-top-color: var(--teal); }
+  .connector-split-3 .branch-line:nth-child(3) { right: calc(16.66%); left: auto; }
+  .connector-split-3 .branch-line:nth-child(3).gold { background: var(--gold); }
+  .connector-split-3 .branch-line:nth-child(3).gold::after { border-top-color: var(--gold); }
+
+  .horiz-bar {
+    position: absolute;
+    top: 0;
+    left: calc(16.66%);
+    right: calc(16.66%);
+    height: 2px;
+    background: var(--accent);
+  }
+
+  .connector-merge {
+    width: 100%;
+    max-width: 720px;
+    position: relative;
+    height: 36px;
+  }
+  .connector-merge::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: calc(16.66% + 1px);
+    right: calc(16.66% + 1px);
+    height: 2px;
+    background: var(--accent);
+  }
+  .connector-merge::after {
+    content: '';
+    position: absolute;
+    bottom: -5px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 6px solid var(--accent);
+  }
+  .connector-merge .center-line {
+    position: absolute;
+    top: 2px;
+    left: 50%;
+    width: 2px;
+    height: calc(100% - 2px);
+    background: var(--accent);
+    transform: translateX(-50%);
+  }
+
+  .tag {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 3px;
+    letter-spacing: 0.5px;
+    margin-right: 4px;
+  }
+  .tag.bc { background: rgba(42,109,219,0.1); color: var(--accent); }
+
+  .openfoam-ref {
+    font-size: 10.5px;
+    color: var(--text-dim);
+    margin-top: 6px;
+    font-style: italic;
+  }
+  .openfoam-ref code {
+    color: var(--accent);
+    background: var(--accent-glow);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-style: normal;
+    font-size: 10px;
+  }
+
+  .flow > * {
+    opacity: 0;
+    transform: translateY(14px);
+    animation: fadeUp 0.5s ease forwards;
+  }
+  .flow > *:nth-child(1) { animation-delay: 0.05s; }
+  .flow > *:nth-child(2) { animation-delay: 0.1s; }
+  .flow > *:nth-child(3) { animation-delay: 0.15s; }
+  .flow > *:nth-child(4) { animation-delay: 0.2s; }
+  .flow > *:nth-child(5) { animation-delay: 0.25s; }
+  .flow > *:nth-child(6) { animation-delay: 0.3s; }
+  .flow > *:nth-child(7) { animation-delay: 0.35s; }
+  .flow > *:nth-child(8) { animation-delay: 0.4s; }
+  .flow > *:nth-child(9) { animation-delay: 0.45s; }
+  .flow > *:nth-child(10) { animation-delay: 0.5s; }
+  .flow > *:nth-child(11) { animation-delay: 0.55s; }
+  .flow > *:nth-child(12) { animation-delay: 0.6s; }
+  .flow > *:nth-child(13) { animation-delay: 0.65s; }
+  .flow > *:nth-child(14) { animation-delay: 0.7s; }
+  .flow > *:nth-child(15) { animation-delay: 0.75s; }
+  .flow > *:nth-child(16) { animation-delay: 0.8s; }
+  .flow > *:nth-child(17) { animation-delay: 0.85s; }
+  .flow > *:nth-child(18) { animation-delay: 0.9s; }
+  .flow > *:nth-child(19) { animation-delay: 0.95s; }
+
+  @keyframes fadeUp {
+    to { opacity: 1; transform: translateY(0); }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Euler–Euler Bubble Nucleation in OpenFOAM</h1>
+  <p class="subtitle">
+    RPI Wall Boiling Model &nbsp;·&nbsp;
+    <code>reactingTwoPhaseEulerFoam</code> / <code>twoPhaseEulerFoam</code>
+  </p>
+
+  <div class="flow">
+
+    <!-- 1. Wall boundary condition -->
+    <div class="node start">
+      <span class="node-label accent">Entry Point</span>
+      <div class="node-title">Heated Wall Boundary Condition</div>
+      <div class="detail">
+        <span class="tag bc">BC</span> <code>alphatWallBoilingWallFunction</code> is applied on the heated wall patch.<br>
+        It checks: is $T_{\text{wall}} > T_{\text{sat}}$&thinsp;? If yes → nucleate boiling regime is activated.
+      </div>
+    </div>
+
+    <div class="connector"></div>
+
+    <!-- 2. Wall Heat Flux Partitioning -->
+    <div class="node hot-border">
+      <span class="node-label hot">Step 1 — Wall Heat Flux Partitioning</span>
+      <div class="node-title">RPI Model: Split Total Wall Heat Flux</div>
+      <div class="eq">
+        $$\dot{q}_w \;=\; \dot{q}_c \;+\; \dot{q}_q \;+\; \dot{q}_e$$
+      </div>
+      <div class="detail">
+        $\dot{q}_c$ — single-phase convective heat flux (area not covered by bubbles)<br>
+        $\dot{q}_q$ — quenching heat flux (transient conduction as liquid refills after bubble departure)<br>
+        $\dot{q}_e$ — evaporative heat flux (latent heat carried away by departing bubbles)
+      </div>
+      <div class="openfoam-ref">
+        Kurul &amp; Podowski (1991) — implemented in <code>alphatWallBoilingWallFunction</code>
+      </div>
+    </div>
+
+    <div class="connector hot"></div>
+
+    <!-- 3. Closure correlations needed -->
+    <div class="node">
+      <span class="node-label">Step 2 — Closure Correlations</span>
+      <div class="node-title">Nucleation Parameters (required to close $\dot{q}_e$ and $\dot{q}_q$)</div>
+      <div class="detail" style="margin-bottom: 12px;">
+        The evaporative and quenching fluxes depend on three bubble parameters computed from empirical sub-models:
+      </div>
+    </div>
+
+    <!-- Split into 3 -->
+    <div class="connector-split-3">
+      <div class="horiz-bar"></div>
+      <div class="branch-line hot"></div>
+      <div class="branch-line teal"></div>
+      <div class="branch-line gold"></div>
+    </div>
+
+    <div class="triple-row">
+      <!-- N_a -->
+      <div class="node hot-border">
+        <span class="node-label hot">Sub-Model</span>
+        <div class="node-title">$N_a$</div>
+        <div class="detail">
+          <strong>Active nucleation site density</strong><br>
+          Sites per unit area where bubbles form.
+        </div>
+        <div class="eq">
+          $$N_a = C_n \left(\Delta T_{\text{sup}}\right)^{1.805}$$
+        </div>
+        <div class="openfoam-ref">
+          Default: <code>LemmertChawla</code>
+        </div>
+      </div>
+
+      <!-- d_w -->
+      <div class="node teal-border">
+        <span class="node-label teal">Sub-Model</span>
+        <div class="node-title">$d_w$</div>
+        <div class="detail">
+          <strong>Bubble departure diameter</strong><br>
+          Size at which bubbles detach from the wall.
+        </div>
+        <div class="eq">
+          $$d_w = d_{\text{ref}}\,\exp\!\left(\frac{-\Delta T_{\text{sup}}}{\Delta T_{\text{ref}}}\right)$$
+        </div>
+        <div class="openfoam-ref">
+          Default: <code>TolubinskiKostanchuk</code>
+        </div>
+      </div>
+
+      <!-- f -->
+      <div class="node gold-border">
+        <span class="node-label gold">Sub-Model</span>
+        <div class="node-title">$f$</div>
+        <div class="detail">
+          <strong>Bubble departure frequency</strong><br>
+          Rate at which bubbles leave per site.
+        </div>
+        <div class="eq">
+          $$f = \sqrt{\frac{4\,g\left(\rho_l - \rho_v\right)}{3\,d_w\,\rho_l}}$$
+        </div>
+        <div class="openfoam-ref">
+          Default: <code>Cole</code>
+        </div>
+      </div>
+    </div>
+
+    <!-- Merge back -->
+    <div class="connector-merge">
+      <div class="center-line"></div>
+    </div>
+
+    <!-- 4. Compute evaporative flux -->
+    <div class="node hot-border">
+      <span class="node-label hot">Step 3 — Evaporative Heat Flux</span>
+      <div class="node-title">Compute $\dot{q}_e$ from closure parameters</div>
+      <div class="eq">
+        $$\dot{q}_e = N_a \cdot f \cdot \rho_v \cdot h_{fg} \cdot \frac{\pi}{6}\,d_w^{\,3}$$
+      </div>
+      <div class="detail">
+        Each departing bubble carries away a volume $\tfrac{\pi}{6}d_w^3$ of vapor at frequency $f$,
+        from $N_a$ sites per unit area, with latent heat $h_{fg}$.
+      </div>
+    </div>
+
+    <div class="connector"></div>
+
+    <!-- 5. Mass source term -->
+    <div class="node teal-border">
+      <span class="node-label teal">Step 4 — Interfacial Mass Transfer</span>
+      <div class="node-title">Vapor mass source term at wall-adjacent cells</div>
+      <div class="eq">
+        $$\dot{m}_e = \frac{\dot{q}_e \cdot A_{\text{wall}}}{h_{fg} \cdot V_{\text{cell}}} \qquad \left[\frac{\text{kg}}{\text{m}^3 \cdot \text{s}}\right]$$
+      </div>
+      <div class="detail">
+        The evaporative heat flux is converted into a volumetric mass source distributed
+        in wall-adjacent cells. This is the <strong>"nucleation seeding"</strong> — vapor phase fraction $\alpha_v$
+        increases at the wall.
+      </div>
+    </div>
+
+    <div class="connector teal"></div>
+
+    <!-- 6. Governing equations affected -->
+    <div class="node">
+      <span class="node-label accent">Step 5 — Governing Equations Affected</span>
+      <div class="node-title">Where the nucleation source appears</div>
+      <div class="detail" style="margin-bottom: 14px;">
+        The mass source term $\dot{m}_e$ and the heat flux partitioning feed into four governing equations:
+      </div>
+
+      <div class="eq">
+        <span class="eq-label">① Continuity (phase fraction)</span>
+        $$\frac{\partial\!\left(\alpha_k \rho_k\right)}{\partial t} + \nabla \cdot \left(\alpha_k \rho_k \,\mathbf{U}_k\right) = \pm\,\dot{m}_e$$
+        <span class="dim">→ vapor gains mass, liquid loses mass</span>
+      </div>
+
+      <div class="eq">
+        <span class="eq-label">② Momentum (per phase)</span>
+        $$\frac{\partial\!\left(\alpha_k \rho_k \,\mathbf{U}_k\right)}{\partial t} + \nabla \cdot \left(\alpha_k \rho_k \,\mathbf{U}_k \mathbf{U}_k\right) = -\alpha_k \nabla p + \nabla \cdot \boldsymbol{\tau}_k + \mathbf{F}_{\text{int}} + \dot{m}_e\,\mathbf{U}_i$$
+        <span class="dim">→ momentum transfer associated with phase change</span>
+      </div>
+
+      <div class="eq">
+        <span class="eq-label">③ Energy (liquid phase)</span>
+        $$\frac{\partial\!\left(\alpha_l \rho_l h_l\right)}{\partial t} + \nabla \cdot \left(\alpha_l \rho_l \,\mathbf{U}_l\, h_l\right) = \dot{q}_c + \dot{q}_q + Q_{\text{interfacial}}$$
+        <span class="dim">→ convective &amp; quenching heat go to liquid, evaporative heat goes to vapor</span>
+      </div>
+
+      <div class="eq">
+        <span class="eq-label">④ Interfacial Area Transport (if enabled)</span>
+        $$\frac{\partial a_i}{\partial t} + \nabla \cdot \left(a_i\,\mathbf{U}_g\right) = \phi_{\text{nuc}} + \phi_{\text{coal}} + \phi_{\text{break}}$$
+        <span class="dim">→ nucleation creates new interfacial area</span>
+      </div>
+    </div>
+
+    <div class="connector gold"></div>
+
+    <!-- 7. Result -->
+    <div class="node" style="background: linear-gradient(135deg, #e8edf6, #dfe4f0); border-color: var(--accent); box-shadow: 0 0 30px var(--accent-glow); text-align:center;">
+      <span class="node-label accent">Result</span>
+      <div class="node-title">Vapor phase fraction $\alpha_v$ evolves from the wall</div>
+      <div class="detail" style="text-align:left;">
+        Bubbles are not individually tracked. Instead, the vapor volume fraction increases at wall-adjacent cells
+        via the mass source term. The dispersed vapor phase then evolves through the bulk governed by
+        interphase forces (drag, lift, wall lubrication, turbulent dispersion, virtual mass) and
+        may condense in subcooled regions.
+      </div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>
