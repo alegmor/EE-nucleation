@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VOF Bubble Nucleation Flow — OpenFOAM</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+  onload="renderMathInElement(document.body, {
+    delimiters: [
+      {left: '$$', right: '$$', display: true},
+      {left: '$', right: '$', display: false}
+    ]
+  });"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap');
+
+  :root {
+    --bg: #ffffff;
+    --surface: #f7f8fa;
+    --border: #d0d5e0;
+    --accent: #2a6dd9;
+    --accent-glow: rgba(42, 109, 217, 0.08);
+    --hot: #c93d34;
+    --hot-glow: rgba(201, 61, 52, 0.07);
+    --teal: #1a9e8f;
+    --teal-glow: rgba(26, 158, 143, 0.07);
+    --gold: #c48a1a;
+    --gold-glow: rgba(196, 138, 26, 0.07);
+    --violet: #7b5ea7;
+    --violet-glow: rgba(123, 94, 167, 0.07);
+    --text: #3a3f4d;
+    --text-dim: #6b7280;
+    --text-bright: #1a1e2b;
+    --mono: 'JetBrains Mono', monospace;
+    --serif: 'Source Serif 4', Georgia, serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 18px;
+    line-height: 1.6;
+    min-height: 100vh;
+    padding: 50px 30px;
+  }
+
+  .container { max-width: 1300px; margin: 0 auto; }
+
+  h1 {
+    font-family: var(--serif);
+    font-size: 38px;
+    font-weight: 600;
+    color: var(--text-bright);
+    text-align: center;
+    margin-bottom: 6px;
+    letter-spacing: -0.5px;
+  }
+
+  .subtitle {
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 16px;
+    margin-bottom: 56px;
+    letter-spacing: 0.5px;
+  }
+  .subtitle code {
+    color: var(--accent);
+    background: var(--accent-glow);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 14px;
+  }
+
+  .flow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+
+  .connector {
+    width: 2px; height: 40px;
+    background: linear-gradient(to bottom, var(--border), var(--accent));
+    position: relative;
+  }
+  .connector::after {
+    content: ''; position: absolute; bottom: -5px; left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 5px solid transparent; border-right: 5px solid transparent;
+    border-top: 6px solid var(--accent);
+  }
+  .connector.hot   { background: linear-gradient(to bottom, var(--border), var(--hot)); }
+  .connector.hot::after   { border-top-color: var(--hot); }
+  .connector.teal  { background: linear-gradient(to bottom, var(--border), var(--teal)); }
+  .connector.teal::after  { border-top-color: var(--teal); }
+  .connector.gold  { background: linear-gradient(to bottom, var(--border), var(--gold)); }
+  .connector.gold::after  { border-top-color: var(--gold); }
+  .connector.violet { background: linear-gradient(to bottom, var(--border), var(--violet)); }
+  .connector.violet::after { border-top-color: var(--violet); }
+
+  .node {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 26px 34px;
+    max-width: 960px;
+    width: 100%;
+    position: relative;
+    transition: border-color 0.3s;
+  }
+  .node:hover { border-color: var(--accent); }
+
+  .node.start {
+    background: linear-gradient(135deg, #e8edf6, #dfe4f0);
+    border-color: var(--accent);
+    box-shadow: 0 0 30px var(--accent-glow);
+    text-align: center;
+  }
+  .node.hot-border    { border-color: var(--hot);    box-shadow: 0 0 20px var(--hot-glow); }
+  .node.hot-border:hover    { border-color: var(--hot); }
+  .node.teal-border   { border-color: var(--teal);   box-shadow: 0 0 20px var(--teal-glow); }
+  .node.teal-border:hover   { border-color: var(--teal); }
+  .node.gold-border   { border-color: var(--gold);   box-shadow: 0 0 20px var(--gold-glow); }
+  .node.gold-border:hover   { border-color: var(--gold); }
+  .node.violet-border { border-color: var(--violet); box-shadow: 0 0 20px var(--violet-glow); }
+  .node.violet-border:hover { border-color: var(--violet); }
+
+  .node-label {
+    position: absolute; top: -12px; left: 20px;
+    background: var(--bg); padding: 0 10px;
+    font-size: 13px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1.5px;
+    color: var(--text-dim);
+  }
+  .node-label.accent { color: var(--accent); }
+  .node-label.hot    { color: var(--hot); }
+  .node-label.teal   { color: var(--teal); }
+  .node-label.gold   { color: var(--gold); }
+  .node-label.violet { color: var(--violet); }
+
+  .node-title {
+    font-family: var(--serif);
+    font-size: 22px; font-weight: 600;
+    color: var(--text-bright);
+    margin-bottom: 10px;
+  }
+
+  .eq {
+    background: #eef0f4;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px 22px;
+    margin: 12px 0;
+    font-size: 18px;
+    color: var(--text);
+    overflow-x: auto;
+  }
+  .eq .katex { font-size: 1.25em; }
+  .eq .dim { color: var(--text-dim); font-family: var(--mono); font-size: 14px; }
+  .eq .eq-label {
+    color: var(--text-bright); font-weight: 600;
+    font-family: var(--mono); font-size: 15px;
+    display: block; margin-bottom: 8px;
+  }
+
+  .detail {
+    color: var(--text-dim);
+    font-size: 15px;
+    margin-top: 10px;
+    line-height: 1.65;
+  }
+  .detail strong { color: var(--text); font-weight: 600; }
+
+  /* Triple branch */
+  .triple-row { display: flex; gap: 16px; width: 100%; max-width: 960px; }
+  .triple-row .node { flex: 1; padding: 22px 20px; }
+
+  .connector-split-3 {
+    display: flex; width: 100%; max-width: 960px;
+    position: relative; height: 36px;
+  }
+  .connector-split-3 .branch-line {
+    position: absolute; top: 0; width: 2px; height: 100%;
+    background: var(--accent);
+  }
+  .connector-split-3 .branch-line::after {
+    content: ''; position: absolute; bottom: -5px; left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 5px solid transparent; border-right: 5px solid transparent;
+    border-top: 6px solid var(--accent);
+  }
+  .connector-split-3 .branch-line:nth-child(1) { left: calc(16.66%); }
+  .connector-split-3 .branch-line:nth-child(1).hot { background: var(--hot); }
+  .connector-split-3 .branch-line:nth-child(1).hot::after { border-top-color: var(--hot); }
+  .connector-split-3 .branch-line:nth-child(2) { left: 50%; transform: translateX(-50%); }
+  .connector-split-3 .branch-line:nth-child(2).teal { background: var(--teal); }
+  .connector-split-3 .branch-line:nth-child(2).teal::after { border-top-color: var(--teal); }
+  .connector-split-3 .branch-line:nth-child(3) { right: calc(16.66%); left: auto; }
+  .connector-split-3 .branch-line:nth-child(3).gold { background: var(--gold); }
+  .connector-split-3 .branch-line:nth-child(3).gold::after { border-top-color: var(--gold); }
+
+  .horiz-bar {
+    position: absolute; top: 0;
+    left: calc(16.66%); right: calc(16.66%);
+    height: 2px; background: var(--accent);
+  }
+
+  .connector-merge {
+    width: 100%; max-width: 960px;
+    position: relative; height: 36px;
+  }
+  .connector-merge::before {
+    content: ''; position: absolute; top: 0;
+    left: calc(16.66% + 1px); right: calc(16.66% + 1px);
+    height: 2px; background: var(--accent);
+  }
+  .connector-merge::after {
+    content: ''; position: absolute; bottom: -5px; left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 5px solid transparent; border-right: 5px solid transparent;
+    border-top: 6px solid var(--accent);
+  }
+  .connector-merge .center-line {
+    position: absolute; top: 2px; left: 50%;
+    width: 2px; height: calc(100% - 2px);
+    background: var(--accent); transform: translateX(-50%);
+  }
+
+  .tag {
+    display: inline-block; font-size: 13px; font-weight: 700;
+    padding: 3px 9px; border-radius: 3px;
+    letter-spacing: 0.5px; margin-right: 4px;
+  }
+  .tag.ic    { background: rgba(42,109,219,0.1); color: var(--accent); }
+  .tag.smear { background: rgba(123,94,167,0.08); color: var(--violet); }
+
+  .openfoam-ref {
+    font-size: 14px; color: var(--text-dim);
+    margin-top: 8px; font-style: italic;
+  }
+  .openfoam-ref code {
+    color: var(--accent); background: var(--accent-glow);
+    padding: 2px 6px; border-radius: 3px;
+    font-style: normal; font-size: 13px;
+  }
+
+  .flow > * {
+    opacity: 0; transform: translateY(14px);
+    animation: fadeUp 0.5s ease forwards;
+  }
+  .flow > *:nth-child(1)  { animation-delay: 0.05s; }
+  .flow > *:nth-child(2)  { animation-delay: 0.10s; }
+  .flow > *:nth-child(3)  { animation-delay: 0.15s; }
+  .flow > *:nth-child(4)  { animation-delay: 0.20s; }
+  .flow > *:nth-child(5)  { animation-delay: 0.25s; }
+  .flow > *:nth-child(6)  { animation-delay: 0.30s; }
+  .flow > *:nth-child(7)  { animation-delay: 0.35s; }
+  .flow > *:nth-child(8)  { animation-delay: 0.40s; }
+  .flow > *:nth-child(9)  { animation-delay: 0.45s; }
+  .flow > *:nth-child(10) { animation-delay: 0.50s; }
+  .flow > *:nth-child(11) { animation-delay: 0.55s; }
+  .flow > *:nth-child(12) { animation-delay: 0.60s; }
+  .flow > *:nth-child(13) { animation-delay: 0.65s; }
+  .flow > *:nth-child(14) { animation-delay: 0.70s; }
+  .flow > *:nth-child(15) { animation-delay: 0.75s; }
+  .flow > *:nth-child(16) { animation-delay: 0.80s; }
+  .flow > *:nth-child(17) { animation-delay: 0.85s; }
+  .flow > *:nth-child(18) { animation-delay: 0.90s; }
+  .flow > *:nth-child(19) { animation-delay: 0.95s; }
+
+  @keyframes fadeUp {
+    to { opacity: 1; transform: translateY(0); }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>VOF Bubble Nucleation in OpenFOAM</h1>
+  <p class="subtitle">
+    Interface-Resolving Phase Change &nbsp;·&nbsp;
+    <code>boilingFoam</code> / <code>interThermalPhaseChangeFoam</code> / modified <code>interFoam</code>
+  </p>
+
+  <div class="flow">
+
+    <!-- 1. Bubble seeding -->
+    <div class="node start">
+      <span class="node-label accent">Entry Point</span>
+      <div class="node-title">Artificial Bubble Seeding (Initial / Runtime)</div>
+      <div class="detail">
+        <span class="tag ic">IC</span> VOF solvers do <strong>not</strong> generate bubbles from closure models.
+        Vapor embryos are explicitly placed in the domain:
+      </div>
+      <div class="detail">
+        <strong>Method 1 — Initial condition:</strong> A vapor seed ($\alpha = 0$) is patched at nucleation sites
+        using <code>setFields</code> or <code>funkySetFields</code> before the simulation starts.<br>
+        <strong>Method 2 — Runtime injection:</strong> At prescribed wall locations, when $T_{\text{wall}} > T_{\text{sat}} + \Delta T_{\text{threshold}}$,
+        a small vapor region is inserted into the $\alpha_1$ field (superheat-activated seeding).
+      </div>
+    </div>
+
+    <div class="connector"></div>
+
+    <!-- 2. Interface capturing -->
+    <div class="node teal-border">
+      <span class="node-label teal">Step 1 — Interface Capturing</span>
+      <div class="node-title">VOF advection of the phase fraction $\alpha_1$</div>
+      <div class="eq">
+        $$\frac{\partial \alpha_1}{\partial t} + \nabla \cdot \left(\mathbf{u}^{*}\,\alpha_1\right) = \dot{\alpha}_{1,\text{pc}}$$
+      </div>
+      <div class="detail">
+        The interface between liquid ($\alpha_1 = 1$) and vapor ($\alpha_1 = 0$) is captured on the mesh.
+        The modified velocity $\mathbf{u}^*$ includes interface compression corrections to counteract numerical diffusion.
+        The RHS source $\dot{\alpha}_{1,\text{pc}}$ accounts for phase change (Nabil &amp; Rattner, 2016, Eq. 6).
+      </div>
+      <div class="openfoam-ref">
+        Algebraic: <code>interFoam</code> (MULES) &nbsp;·&nbsp; Geometric: <code>isoAdvector</code>
+      </div>
+    </div>
+
+    <div class="connector teal"></div>
+
+    <!-- 3. Phase change model -->
+    <div class="node hot-border">
+      <span class="node-label hot">Step 2 — Phase Change Model Selection</span>
+      <div class="node-title">Compute phase-change heating rate $\dot{q}_{\text{pc}}$</div>
+      <div class="detail" style="margin-bottom:14px;">
+        The phase-change closure model computes $\dot{q}_{\text{pc}}$, from which the dilatation rate
+        and phase fraction source are derived. Three main families of models:
+      </div>
+    </div>
+
+    <!-- Split into 3 models -->
+    <div class="connector-split-3">
+      <div class="horiz-bar"></div>
+      <div class="branch-line hot"></div>
+      <div class="branch-line teal"></div>
+      <div class="branch-line gold"></div>
+    </div>
+
+    <div class="triple-row">
+      <!-- InterfaceEquilibrium -->
+      <div class="node hot-border">
+        <span class="node-label hot">Model A</span>
+        <div class="node-title">InterfaceEquilibrium</div>
+        <div class="eq">
+          $$\dot{q}_{\text{pc}} = \rho\,c_p\,\frac{T - T_{\text{sat}}}{\Delta t}$$
+        </div>
+        <div class="detail">
+          Forces interface cells to recover $T_{\text{sat}}$ each timestep.
+          Applied only on a two-cell-thick layer around the interface.
+          Variant <strong>SplitDilatation</strong> splits $\dot{v}_{\text{pc}}$ to each side of the interface for better mass conservation.
+        </div>
+        <div class="openfoam-ref">
+          <code>interThermalPhaseChangeFoam</code><br>
+          Rattner &amp; Garimella (2014)
+        </div>
+      </div>
+
+      <!-- Hardt & Wondra -->
+      <div class="node teal-border">
+        <span class="node-label teal">Model B</span>
+        <div class="node-title">Hardt &amp; Wondra</div>
+        <div class="eq">
+          $$\dot{m}''_0 = \frac{\lambda\,\nabla T \cdot \mathbf{n}}{h_{lv}}\bigg|_{\text{int}}$$
+        </div>
+        <div class="detail">
+          Sharp interfacial source from the temperature gradient normal to the interface, then <strong>smeared</strong>
+          over a band of cells via a diffusion equation to avoid numerical instabilities.
+        </div>
+        <div class="openfoam-ref">
+          <code>boilingFoam</code><br>
+          Hardt &amp; Wondra (2008)
+        </div>
+      </div>
+
+      <!-- EmpiricalRateParameter (Yang/Lee) -->
+      <div class="node gold-border">
+        <span class="node-label gold">Model C</span>
+        <div class="node-title">EmpiricalRateParameter</div>
+        <div class="eq">
+          $$\dot{q}_{\text{pc}} = \begin{cases} r_L\,\alpha_1\,\rho_L\,h_{lv}\,\dfrac{T - T_{\text{sat}}}{T_{\text{sat}}} & T \geq T_{\text{sat}} \\[8pt] r_V(1-\alpha_1)\rho_V\,h_{lv}\,\dfrac{T - T_{\text{sat}}}{T_{\text{sat}}} & T < T_{\text{sat}} \end{cases}$$
+        </div>
+        <div class="detail">
+          Volumetric source proportional to superheat/subcooling. Rate parameters $r_L$, $r_V$ require calibration per case and mesh.
+          Applies phase change everywhere, not just at the interface.
+        </div>
+        <div class="openfoam-ref">
+          <code>interThermalPhaseChangeFoam</code><br>
+          Yang et al. (2008) · same form as Lee (1980)
+        </div>
+      </div>
+    </div>
+
+    <!-- Merge back -->
+    <div class="connector-merge">
+      <div class="center-line"></div>
+    </div>
+
+    <!-- 4. Source term coupling -->
+    <div class="node violet-border">
+      <span class="node-label violet">Step 3 — Source Term Coupling</span>
+      <div class="node-title">From $\dot{q}_{\text{pc}}$ to governing equation sources</div>
+      <div class="detail">
+        <span class="tag smear">Key difference from Euler–Euler</span>
+        All models produce $\dot{q}_{\text{pc}}$. The framework then derives two coupled source fields
+        (Nabil &amp; Rattner, 2016, Eqs. 7–8):
+      </div>
+      <div class="eq">
+        <span class="eq-label">Dilatation rate (velocity divergence source)</span>
+        $$\dot{v}_{\text{pc}} = \frac{\dot{q}_{\text{pc}}}{h_{lv}}\left(\frac{1}{\rho_V} - \frac{1}{\rho_L}\right)$$
+      </div>
+      <div class="eq">
+        <span class="eq-label">Phase fraction source</span>
+        $$\dot{\alpha}_{1,\text{pc}} = -\frac{\dot{q}_{\text{pc}}}{\rho\,h_{lv}}$$
+      </div>
+      <div class="detail">
+        These create a velocity divergence at the interface (liquid pushed away from growing bubble)
+        and evolve $\alpha_1$ to grow or shrink the vapor region.
+      </div>
+    </div>
+
+    <div class="connector violet"></div>
+
+    <!-- 5. Governing equations -->
+    <div class="node">
+      <span class="node-label accent">Step 4 — Governing Equations (Single-Fluid Formulation)</span>
+      <div class="node-title">Where bubble growth is resolved</div>
+      <div class="detail" style="margin-bottom: 14px;">
+        VOF solves a single set of mixture equations. The phase-change sources appear as follows
+        (Nabil &amp; Rattner, 2016, Eqs. 2–6):
+      </div>
+
+      <div class="eq">
+        <span class="eq-label">① Mass conservation (pressure Poisson equation)</span>
+        $$\nabla \cdot \mathbf{u} = \dot{v}_{\text{pc}}$$
+        <span class="dim">→ non-zero divergence at the interface due to density change during evaporation/condensation</span>
+      </div>
+
+      <div class="eq">
+        <span class="eq-label">② Momentum (mixture)</span>
+        $$\frac{\partial\left(\rho\,\mathbf{u}\right)}{\partial t} + \nabla \cdot \left(\rho\,\mathbf{u}\mathbf{u}\right) = -\nabla p' + \nabla \cdot \boldsymbol{\tau} + c_{\text{hsp}}\,\rho\,\mathbf{g} + \mathbf{f}_{\sigma}$$
+        <span class="dim">→ single velocity field; surface tension $\mathbf{f}_\sigma$ drives bubble shape (Brackbill / Raeini / Lafaurie models)</span>
+      </div>
+
+      <div class="eq">
+        <span class="eq-label">③ Energy (enthalpy)</span>
+        $$\frac{\partial\left(\rho\,i\right)}{\partial t} + \nabla \cdot \left(\rho\,\mathbf{u}\,i\right) = \nabla \cdot \left(k_{\text{eff}}\,\nabla T\right) - \dot{q}_{\text{pc}}$$
+        <span class="dim">→ $\dot{q}_{\text{pc}}$ is the latent heat source/sink computed by the selected phase-change model</span>
+      </div>
+
+      <div class="eq">
+        <span class="eq-label">④ Phase fraction (VOF)</span>
+        $$\frac{\partial \alpha_1}{\partial t} + \nabla \cdot \left(\mathbf{u}^{*}\,\alpha_1\right) = \dot{\alpha}_{1,\text{pc}}$$
+        <span class="dim">→ $\alpha_1$ evolves: vapor region grows where evaporation occurs, shrinks where condensation occurs</span>
+      </div>
+
+      <div class="eq">
+        <span class="eq-label">⑤ Conjugate Heat Transfer (if solid region, e.g. boilingFoam)</span>
+        $$\frac{\partial\left(\rho_s\,c_{p,s}\,T\right)}{\partial t} = \nabla \cdot \left(\lambda_s\,\nabla T\right)$$
+        <span class="dim">→ wall thermal response feeds back into the fluid boundary condition</span>
+      </div>
+    </div>
+
+    <div class="connector gold"></div>
+
+    <!-- 6. Subgrid models -->
+    <div class="node gold-border">
+      <span class="node-label gold">Additional — Subgrid / Micro-Region Models</span>
+      <div class="node-title">Contact line and microlayer evaporation</div>
+      <div class="detail">
+        The three-phase contact line (liquid–vapor–solid) region is typically smaller than the mesh cell.
+        Subgrid models account for:
+      </div>
+      <div class="detail">
+        <strong>Microlayer evaporation:</strong> Thin liquid film beneath the bubble base contributes significantly to heat transfer
+        (up to ~50% of bubble growth). Modelled as an additional heat flux based on film thickness.<br>
+        <strong>Contact angle dynamics:</strong> Static or dynamic contact angle imposed at wall boundary.
+        Affects bubble shape, departure, and sliding behaviour.<br>
+        <strong>Surface tension force model:</strong> Run-time selectable — Brackbill et al. (1992),
+        Raeini et al. (2012), or Lafaurie et al. (1994). Choice affects spurious currents.
+      </div>
+      <div class="openfoam-ref">
+        Stephan &amp; Busse (1992) · Kunkelmann &amp; Stephan (2009)
+      </div>
+    </div>
+
+    <div class="connector"></div>
+
+    <!-- 7. Result -->
+    <div class="node" style="background: linear-gradient(135deg, #e8edf6, #dfe4f0); border-color: var(--accent); box-shadow: 0 0 30px var(--accent-glow); text-align:center;">
+      <span class="node-label accent">Result</span>
+      <div class="node-title">Individual bubble dynamics are fully resolved</div>
+      <div class="detail" style="text-align:left;">
+        Unlike Euler–Euler, each bubble is <strong>geometrically resolved</strong> on the mesh.
+        The bubble shape, growth rate, departure diameter, and sliding distance emerge naturally
+        from the governing equations — no empirical closure correlations
+        for $N_a$, $d_w$, or $f$ are needed.
+        However, the interface is typically ~3 cells thick, and the approach requires
+        very fine meshes (typically $\Delta x \sim 1{-}10\,\mu\text{m}$),
+        limiting it to individual or small groups of bubbles.
+      </div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>
