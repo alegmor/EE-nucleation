@@ -35,6 +35,10 @@
     --text-bright: #1a1e2b;
     --mono: 'JetBrains Mono', monospace;
     --serif: 'Source Serif 4', Georgia, serif;
+    --hw-dark: #0e4a6e;
+    --hw-mid: #1a7a9e;
+    --hw-light: #e6f3f8;
+    --hw-glow: rgba(26, 122, 158, 0.10);
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -103,6 +107,8 @@
   .connector.gold::after  { border-top-color: var(--gold); }
   .connector.violet { background: linear-gradient(to bottom, var(--border), var(--violet)); }
   .connector.violet::after { border-top-color: var(--violet); }
+  .connector.hw { background: linear-gradient(to bottom, var(--border), var(--hw-mid)); }
+  .connector.hw::after { border-top-color: var(--hw-mid); }
 
   .node {
     background: var(--surface);
@@ -131,6 +137,9 @@
   .node.violet-border { border-color: var(--violet); box-shadow: 0 0 20px var(--violet-glow); }
   .node.violet-border:hover { border-color: var(--violet); }
 
+  .node.hw-border { border-color: var(--hw-mid); box-shadow: 0 0 24px var(--hw-glow); }
+  .node.hw-border:hover { border-color: var(--hw-dark); }
+
   .node-label {
     position: absolute; top: -12px; left: 20px;
     background: var(--bg); padding: 0 10px;
@@ -143,6 +152,7 @@
   .node-label.teal   { color: var(--teal); }
   .node-label.gold   { color: var(--gold); }
   .node-label.violet { color: var(--violet); }
+  .node-label.hw     { color: var(--hw-mid); }
 
   .node-title {
     font-family: var(--serif);
@@ -169,6 +179,12 @@
     display: block; margin-bottom: 8px;
   }
 
+  .eq.hw-eq {
+    background: var(--hw-light);
+    border-color: var(--hw-mid);
+  }
+  .eq.hw-eq .eq-label { color: var(--hw-dark); }
+
   .detail {
     color: var(--text-dim);
     font-size: 15px;
@@ -176,6 +192,71 @@
     line-height: 1.65;
   }
   .detail strong { color: var(--text); font-weight: 600; }
+
+  /* HW substep styling */
+  .hw-substep {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    margin: 16px 0;
+    padding: 16px 20px;
+    background: var(--hw-light);
+    border-left: 3px solid var(--hw-mid);
+    border-radius: 0 8px 8px 0;
+  }
+  .hw-substep-num {
+    flex-shrink: 0;
+    width: 32px; height: 32px;
+    background: var(--hw-mid);
+    color: #fff;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 700;
+    margin-top: 2px;
+  }
+  .hw-substep-content { flex: 1; }
+  .hw-substep-content .hw-step-title {
+    font-weight: 700;
+    color: var(--hw-dark);
+    font-size: 15px;
+    margin-bottom: 4px;
+  }
+  .hw-substep-content .detail { margin-top: 4px; }
+
+  .hw-arrow-down {
+    width: 2px; height: 20px;
+    background: var(--hw-mid);
+    margin: 0 auto;
+    position: relative;
+  }
+  .hw-arrow-down::after {
+    content: ''; position: absolute; bottom: -4px; left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 4px solid transparent; border-right: 4px solid transparent;
+    border-top: 5px solid var(--hw-mid);
+  }
+
+  /* coupling map */
+  .coupling-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin: 14px 0;
+  }
+  .coupling-card {
+    background: var(--hw-light);
+    border: 1px solid var(--hw-mid);
+    border-radius: 8px;
+    padding: 14px 16px;
+    font-size: 14px;
+  }
+  .coupling-card .cc-label {
+    font-weight: 700; color: var(--hw-dark);
+    font-size: 13px; text-transform: uppercase;
+    letter-spacing: 1px; margin-bottom: 6px;
+  }
+  .coupling-card .katex { font-size: 1.1em; }
 
   /* Triple branch */
   .triple-row { display: flex; gap: 16px; width: 100%; max-width: 960px; }
@@ -200,8 +281,8 @@
   .connector-split-3 .branch-line:nth-child(1).hot { background: var(--hot); }
   .connector-split-3 .branch-line:nth-child(1).hot::after { border-top-color: var(--hot); }
   .connector-split-3 .branch-line:nth-child(2) { left: 50%; transform: translateX(-50%); }
-  .connector-split-3 .branch-line:nth-child(2).teal { background: var(--teal); }
-  .connector-split-3 .branch-line:nth-child(2).teal::after { border-top-color: var(--teal); }
+  .connector-split-3 .branch-line:nth-child(2).hw { background: var(--hw-mid); }
+  .connector-split-3 .branch-line:nth-child(2).hw::after { border-top-color: var(--hw-mid); }
   .connector-split-3 .branch-line:nth-child(3) { right: calc(16.66%); left: auto; }
   .connector-split-3 .branch-line:nth-child(3).gold { background: var(--gold); }
   .connector-split-3 .branch-line:nth-child(3).gold::after { border-top-color: var(--gold); }
@@ -241,6 +322,7 @@
   }
   .tag.ic    { background: rgba(42,109,219,0.1); color: var(--accent); }
   .tag.smear { background: rgba(123,94,167,0.08); color: var(--violet); }
+  .tag.hw-tag { background: var(--hw-light); color: var(--hw-dark); }
 
   .openfoam-ref {
     font-size: 14px; color: var(--text-dim);
@@ -275,6 +357,10 @@
   .flow > *:nth-child(17) { animation-delay: 0.85s; }
   .flow > *:nth-child(18) { animation-delay: 0.90s; }
   .flow > *:nth-child(19) { animation-delay: 0.95s; }
+  .flow > *:nth-child(20) { animation-delay: 1.00s; }
+  .flow > *:nth-child(21) { animation-delay: 1.05s; }
+  .flow > *:nth-child(22) { animation-delay: 1.10s; }
+  .flow > *:nth-child(23) { animation-delay: 1.15s; }
 
   @keyframes fadeUp {
     to { opacity: 1; transform: translateY(0); }
@@ -342,7 +428,7 @@
     <div class="connector-split-3">
       <div class="horiz-bar"></div>
       <div class="branch-line hot"></div>
-      <div class="branch-line teal"></div>
+      <div class="branch-line hw"></div>
       <div class="branch-line gold"></div>
     </div>
 
@@ -366,18 +452,19 @@
       </div>
 
       <!-- Hardt & Wondra -->
-      <div class="node teal-border">
-        <span class="node-label teal">Model B</span>
+      <div class="node hw-border">
+        <span class="node-label hw">Model B</span>
         <div class="node-title">Hardt &amp; Wondra</div>
-        <div class="eq">
-          $$\dot{m}''_0 = \frac{\lambda\,\nabla T \cdot \mathbf{n}}{h_{lv}}\bigg|_{\text{int}}$$
+        <div class="eq hw-eq">
+          $$\dot{m}''_0 = \frac{\lambda\,\nabla T \cdot \hat{\mathbf{n}}}{h_{lv}}\bigg|_{\text{int}}$$
         </div>
         <div class="detail">
           Sharp interfacial source from the temperature gradient normal to the interface, then <strong>smeared</strong>
           over a band of cells via a diffusion equation to avoid numerical instabilities.
+          <strong>See detailed breakdown below ↓</strong>
         </div>
         <div class="openfoam-ref">
-          <code>boilingFoam</code><br>
+          <code>boilingFoam</code> · <code>interfaceHeatResistance</code><br>
           Hardt &amp; Wondra (2008)
         </div>
       </div>
@@ -405,7 +492,152 @@
       <div class="center-line"></div>
     </div>
 
-    <!-- 4. Source term coupling -->
+    <!-- ============================================================ -->
+    <!-- NEW: Hardt & Wondra detailed breakdown -->
+    <!-- ============================================================ -->
+    <div class="node hw-border" style="max-width: 960px; background: linear-gradient(135deg, #f0f8fb, #e6f3f8);">
+      <span class="node-label hw">Hardt &amp; Wondra — Detailed Pipeline</span>
+      <div class="node-title">From interface temperature to governing equation sources</div>
+      <div class="detail" style="margin-bottom: 16px;">
+        The Hardt &amp; Wondra model computes a <strong>physically-based interfacial mass flux</strong>
+        from the Hertz-Knudsen-Schrage relation, then <strong>smears</strong> it to avoid pressure oscillations,
+        and finally injects the result into the VOF, pressure, and energy equations.
+        The four internal steps are:
+      </div>
+
+      <!-- Sub-step 1: Interfacial heat flux -->
+      <div class="hw-substep">
+        <div class="hw-substep-num">1</div>
+        <div class="hw-substep-content">
+          <div class="hw-step-title">Interfacial heat flux (Schrage / interface heat resistance)</div>
+          <div class="detail">
+            The local heat flux at the interface is computed from the deviation of the cell temperature from saturation.
+            Unlike simpler models that assume $T_{\text{int}} = T_{\text{sat}}$, this captures the <strong>non-equilibrium thermal resistance</strong> at the interface — important for micro-scale bubbles.
+          </div>
+          <div class="eq hw-eq">
+            <span class="eq-label">Interfacial heat flux (Schrage equation)</span>
+            $$\dot{q}_{\text{pc}} = \frac{2\,C_{\text{acc}}}{2 - C_{\text{acc}}} \cdot \frac{\rho_V\,h_{lv}^2}{T_{\text{sat}}} \cdot \sqrt{\frac{1}{2\pi R_{\text{gas}} T_{\text{sat}}}} \cdot \left(T_{\text{cell}} - T_{\text{sat}}\right) \cdot A_{\text{int}}$$
+            <span class="dim">$C_{\text{acc}}$ = accommodation coefficient, $R_{\text{gas}}$ = specific gas constant, $A_{\text{int}}$ = interface area density</span>
+          </div>
+          <div class="detail">
+            The interface area per cell volume is estimated as $A_{\text{int}} = |\nabla\alpha_1|$ in the original formulation.
+            In OpenFOAM's <code>interfaceHeatResistance</code> model this simplifies to specifying a single coefficient <code>R</code> and <code>Tactivate</code> $= T_{\text{sat}}$.
+          </div>
+        </div>
+      </div>
+
+      <div class="hw-arrow-down"></div>
+
+      <!-- Sub-step 2: Raw mass source -->
+      <div class="hw-substep">
+        <div class="hw-substep-num">2</div>
+        <div class="hw-substep-content">
+          <div class="hw-step-title">Raw mass source (sharp, interface-only)</div>
+          <div class="detail">
+            Convert the heat flux to a volumetric mass transfer rate. This "raw" source is <strong>concentrated entirely</strong> in interface cells ($0 < \alpha_1 < 1$).
+          </div>
+          <div class="eq hw-eq">
+            <span class="eq-label">Raw volumetric mass source</span>
+            $$\dot{m}_0 = \frac{\dot{q}_{\text{pc}}}{h_{lv}}$$
+            <span class="dim">Units: kg/(m³·s) — sharp field, non-zero only in interface cells</span>
+          </div>
+          <div class="detail">
+            <strong>Problem:</strong> Because $\dot{m}_0$ has a steep gradient across the interface, injecting it directly
+            into the pressure Poisson equation causes <strong>numerical oscillations and instability</strong>.
+          </div>
+        </div>
+      </div>
+
+      <div class="hw-arrow-down"></div>
+
+      <!-- Sub-step 3: Smearing -->
+      <div class="hw-substep">
+        <div class="hw-substep-num">3</div>
+        <div class="hw-substep-content">
+          <div class="hw-step-title">Source smearing (Helmholtz diffusion) — the key H&amp;W innovation</div>
+          <div class="detail">
+            The sharp source $\dot{m}_0$ is diffused over a controlled band of cells by solving an inhomogeneous Helmholtz equation.
+            This is the defining feature of the Hardt &amp; Wondra model.
+          </div>
+          <div class="eq hw-eq">
+            <span class="eq-label">Helmholtz smearing equation</span>
+            $$\dot{m} \;-\; \epsilon^2\,\nabla^2 \dot{m} \;=\; \dot{m}_0$$
+            <span class="dim">$\epsilon$ controls smearing width · OpenFOAM parameter: <code>spread</code> (default = 3 cells)</span>
+          </div>
+          <div class="detail">
+            After solving, the smeared field $\dot{m}$ is <strong>rescaled</strong> so that total mass is conserved:
+            $\displaystyle\int_\Omega \dot{m}\,\mathrm{d}V = \int_\Omega \dot{m}_0\,\mathrm{d}V$.
+            The mass source is then <strong>shifted</strong> so that it acts only in the <strong>neighbouring cells</strong> of the interface
+            (not inside the interface itself), preventing artificial interface smearing.
+          </div>
+        </div>
+      </div>
+
+      <div class="hw-arrow-down"></div>
+
+      <!-- Sub-step 4: Derive coupled sources -->
+      <div class="hw-substep">
+        <div class="hw-substep-num">4</div>
+        <div class="hw-substep-content">
+          <div class="hw-step-title">Derive the three coupled source terms for the governing equations</div>
+          <div class="detail">
+            The smeared mass source $\dot{m}$ is now converted into the source terms that enter
+            the VOF, pressure, and energy equations:
+          </div>
+          <div class="coupling-grid">
+            <div class="coupling-card">
+              <div class="cc-label">→ VOF equation</div>
+              <div>Phase fraction source:</div>
+              <div style="margin-top:6px;">
+                $$\dot{\alpha}_{1,\text{pc}} = -\frac{\dot{m}}{\rho}$$
+              </div>
+              <div class="detail" style="margin-top:4px; font-size:13px;">
+                Negative = liquid consumed → vapor grows
+              </div>
+            </div>
+            <div class="coupling-card">
+              <div class="cc-label">→ Pressure Poisson equation</div>
+              <div>Velocity divergence source:</div>
+              <div style="margin-top:6px;">
+                $$\nabla \cdot \mathbf{u} = \dot{m}\left(\frac{1}{\rho_V} - \frac{1}{\rho_L}\right)$$
+              </div>
+              <div class="detail" style="margin-top:4px; font-size:13px;">
+                Creates expansion at the interface (pushes liquid away)
+              </div>
+            </div>
+            <div class="coupling-card">
+              <div class="cc-label">→ Energy equation (liquid side)</div>
+              <div>Latent heat sink:</div>
+              <div style="margin-top:6px;">
+                $$\dot{q}^{\,l}_{\text{ph}} = -\dot{m} \cdot h_{lv}$$
+              </div>
+              <div class="detail" style="margin-top:4px; font-size:13px;">
+                Removes latent heat from the superheated liquid
+              </div>
+            </div>
+            <div class="coupling-card">
+              <div class="cc-label">→ Energy equation (vapor side)</div>
+              <div>Latent heat source:</div>
+              <div style="margin-top:6px;">
+                $$\dot{q}^{\,v}_{\text{ph}} = +\dot{m} \cdot h_{lv}$$
+              </div>
+              <div class="detail" style="margin-top:4px; font-size:13px;">
+                Deposits latent heat into the vapor (or = 0 if $T_v = T_{\text{sat}}$)
+              </div>
+            </div>
+          </div>
+          <div class="detail">
+            <span class="tag hw-tag">Note</span> In the <strong>HardtWondraGas</strong> variant (TwoPhaseFlow library),
+            the liquid loss is handled via a <strong>sharp</strong> source in the VOF equation rather than the smeared source,
+            improving thin-film accuracy.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="connector hw"></div>
+
+    <!-- 4. Source term coupling (generic) -->
     <div class="node violet-border">
       <span class="node-label violet">Step 3 — Source Term Coupling</span>
       <div class="node-title">From $\dot{q}_{\text{pc}}$ to governing equation sources</div>
